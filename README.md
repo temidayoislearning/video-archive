@@ -71,3 +71,37 @@ For a proxy that terminates HTTPS, set `ARCHIVE_PUBLIC_ORIGIN` to the
 public origin (for example, `https://archive.example.org`) so dashboard
 edits can validate their origin. Back up both the videos and database
 using a consistent snapshot or while the application and scan are stopped.
+
+## Deploy the dashboard with Docker
+
+If you see `{% extends "base.html" %}` or `{{ row.code }}` in your browser,
+the host is serving a template file directly. The dashboard's entry point
+is the Python server. Open the server's root URL (`/`) instead of
+`templates/index.html`. If your deployment uses Cloudflare Pages as a
+static host, run the Python app on a server and point Cloudflare Tunnel
+to that server.
+
+1. On the machine that will run the archive, clone this repository and
+   create a local `.env` file alongside `compose.yaml` with a strong
+   `ARCHIVE_PASSWORD`. When using a public hostname behind a reverse proxy,
+   also set `ARCHIVE_PUBLIC_ORIGIN` to the exact HTTPS origin, without
+   a trailing slash.
+2. Run `docker compose up -d --build`. Visit http://127.0.0.1:8000 on
+   that machine and sign in as `archive` with the password you set.
+3. With `cloudflared` running on the same host, point your existing
+   Cloudflare Tunnel hostname to `http://127.0.0.1:8000`. Keep your
+   Cloudflare Access policy in place if the archive is private.
+
+The Docker volume keeps the originals, index, and Whisper model cache
+across restarts and rebuilds. For a fresh archive, copy the contents of
+your video folder into the container and scan them:
+
+```text
+docker compose cp ./videos/. archive:/data/videos/
+docker compose exec archive python archive.py scan
+```
+
+Use a fresh folder or unique filenames when copying to a populated archive
+to avoid overwriting an original. If you already have an indexed archive on
+the host, keep using its existing server and data directory, or migrate both
+its videos and SQLite catalog together before switching to Docker.

@@ -39,6 +39,15 @@ class ArchiveIntegrationTest(unittest.TestCase):
                 credentials = base64.b64encode(b"archive:test-only").decode()
                 headers = {"Authorization": f"Basic {credentials}"}
                 self.assertEqual(client.get("/media/1").status_code, 401)
+                homepage = client.get("/", headers=headers)
+                self.assertEqual(homepage.status_code, 200)
+                self.assertIn(b"Recording library", homepage.data)
+                self.assertNotIn(b"{% extends", homepage.data)
+                for url in ("/static/archive.css", "/static/archive.js"):
+                    self.assertIn(url.encode(), homepage.data)
+                    with client.get(url, headers=headers) as asset:
+                        self.assertEqual(asset.status_code, 200)
+                self.assertEqual(client.get("/templates/index.html", headers=headers).status_code, 404)
                 self.assertIn(b"Transcription is pending", client.get("/videos/1", headers=headers).data)
                 self.assertIn(b"ACT-021", client.get("/?from=2024-07-15&to=2024-07-15", headers=headers).data)
                 self.assertIn(b"No recordings", client.get("/?from=2024-07-16", headers=headers).data)
