@@ -225,27 +225,40 @@ def index():
         end = datetime.strptime(end, "%Y-%m-%d").date().isoformat() if end else ""
     except ValueError:
         abort(400, "Invalid date filter")
+    status = request.args.get("status", "")
+    if status not in {"Ready", "Pending", "Failed", "No audio"}:
+        status = ""
+    orders = {
+        "newest": "created IS NULL, created DESC, path",
+        "oldest": "created IS NULL, created ASC, path",
+        "name": "code COLLATE NOCASE, path",
+    }
+    sort = request.args.get("sort", "newest")
+    if sort not in orders:
+        sort = "newest"
     page = request.args.get("page", 1, type=int)
     page = min(max(page, 1), 1000000)
     phrase = '"' + query.replace('"', '""') + '"' if any(c.isalnum() for c in query) else ""
     with closing(connect()) as db:
-        rows = db.execute("""
+        rows = db.execute(f"""
             SELECT v.*, count(*) OVER () AS total,
               (SELECT start FROM captions WHERE captions MATCH :phrase AND video_id = v.id
                ORDER BY start LIMIT 1) AS match_start,
               (SELECT words FROM captions WHERE captions MATCH :phrase AND video_id = v.id
                ORDER BY start LIMIT 1) AS match_words
             FROM videos v
-            WHERE (:start = '' OR substr(created, 1, 10) >= :start)
+            WHERE (:status = '' OR status = :status)
+              AND (:start = '' OR substr(created, 1, 10) >= :start)
               AND (:end = '' OR substr(created, 1, 10) <= :end)
               AND (:query = '' OR instr(lower(path), lower(:query))
                 OR instr(lower(code), lower(:query)) OR instr(lower(description), lower(:query))
                 OR id IN (SELECT video_id FROM captions WHERE captions MATCH :phrase))
-            ORDER BY created IS NULL, created DESC, path
+            ORDER BY {orders[sort]}
             LIMIT 24 OFFSET :offset
-        """, dict(query=query, phrase=phrase or '""', start=start, end=end, offset=(page - 1) * 24)).fetchall()
+        """, dict(query=query, phrase=phrase or '""', start=start, end=end, status=status, offset=(page - 1) * 24)).fetchall()
         counts = dict(db.execute("SELECT status, count(*) FROM videos GROUP BY status").fetchall())
-    return render_template("index.html", rows=rows, counts=counts, query=query, start=start, end=end, page=page)
+    filters = {"q": query, "from": start, "to": end, "sort": sort, "status": status}
+    return render_template("index.html", rows=rows, counts=counts, filters=filters, page=page)
 
 
 def get_video(db, video_id):
@@ -257,6 +270,8 @@ def get_video(db, video_id):
 
 @app.route("/videos/<int:video_id>", methods=["GET", "POST"])
 def detail(video_id):
+    return_filters = {key: request.args[key] for key in ("q", "from", "to", "sort", "status", "page")
+                      if request.args.get(key)}
     with closing(connect()) as db:
         row = get_video(db, video_id)
         if request.method == "POST":
@@ -266,10 +281,10 @@ def detail(video_id):
                 abort(400, "Enter a code name and keep the description under 4,001 characters.")
             with db:
                 db.execute("UPDATE videos SET code=?, description=? WHERE id=?", (code, description, video_id))
-            return redirect(url_for("detail", video_id=video_id, saved=1), code=303)
+            return redirect(url_for("detail", video_id=video_id, saved=1, **return_filters), code=303)
         segments = db.execute("SELECT start, words FROM captions WHERE video_id = ? ORDER BY start",
                               (video_id,)).fetchall()
-    return render_template("detail.html", row=row, segments=segments, saved=request.args.get("saved") == "1")
+    return render_template("detail.html", row=row, segments=segments, return_filters=return_filters, saved=request.args.get("saved") == "1")
 
 
 @app.get("/media/<int:video_id>")

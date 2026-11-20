@@ -57,6 +57,13 @@ class ArchiveIntegrationTest(unittest.TestCase):
                 self.assertIn(b"ACT-021-B", result.data)
                 self.assertIn(b"#t=0.4", result.data)
                 self.assertIn(b"Checkout demo", result.data)
+                self.assertIn(b"ACT-021-B", client.get("/?status=Ready&sort=name", headers=headers).data)
+                self.assertIn(b"No recordings found", client.get("/?status=Pending", headers=headers).data)
+                edit = client.post("/videos/1?q=motor+test&sort=name", data=fields, headers=origin)
+                self.assertEqual(edit.status_code, 303)
+                self.assertIn("q=motor+test", edit.headers["Location"])
+                self.assertIn("sort=name", edit.headers["Location"])
+                self.assertIn(b"Details saved.", client.get(edit.headers["Location"], headers=headers).data)
                 with closing(archive.connect()) as db:
                     self.assertEqual(db.execute("SELECT count(*) FROM captions").fetchone()[0], 1)
                 media = client.get("/media/1", headers={**headers, "Range": "bytes=0-31"})

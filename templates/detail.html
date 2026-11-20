@@ -1,50 +1,55 @@
 {% extends "base.html" %}
 {% block title %}{{ row.code }} · Video Archive{% endblock %}
 {% block content %}
-<a class="back" href="{{ url_for('index') }}">← All recordings</a>
-<h1>{{ row.code }}</h1>
-<p class="filename">{{ row.path }}</p>
-<div class="detail">
-<section aria-label="Playback and transcript">
-<video id="player" controls preload="metadata" src="{{ url_for('media', video_id=row.id) }}"></video>
-<p><a href="{{ url_for('media', video_id=row.id, download=1) }}">Download original</a><span id="playback-error" hidden> · Browser playback unavailable</span></p>
-<h2>Transcript</h2>
-{% if row.status == 'Failed' %}<p>Indexing failed. Run the scan again to retry.</p><p class="filename">{{ row.error }}</p>
-{% elif row.status == 'Pending' %}<p>Transcription is pending. Run a full scan to process the audio.</p>
-{% elif row.status == 'No audio' %}<p>This recording has no audio track.</p>
-{% elif not segments %}<p>No speech segments were found.</p>
-{% endif %}
-<ol class="transcript">
-{% for segment in segments %}
-<li><a href="#t={{ segment.start }}">{{ segment.start|timestamp }}</a><span>{{ segment.words }}</span></li>
-{% endfor %}
-</ol>
-</section>
-<aside>
-<h2>Recording details</h2>
-<dl>
-<dt>Embedded creation date</dt><dd>{{ row.created if row.created else 'Unknown' }}</dd>
-{% if row.date_source %}<dt>Date source</dt><dd>{{ row.date_source }}</dd>{% endif %}
-{% if row.duration is not none %}<dt>Duration</dt><dd>{{ row.duration|timestamp }}</dd>{% endif %}
-</dl>
-<form method="post" class="editor">
-<label>Code name<input name="code" value="{{ row.code }}" maxlength="250" required></label>
-<label>Description<textarea name="description" maxlength="4000" rows="5">{{ row.description }}</textarea></label>
-<button type="submit">Save details</button>
-{% if saved %}<p role="status">Details saved.</p>{% endif %}
-</form>
-</aside>
+<a class="back" href="{{ url_for('index', **return_filters) }}">← Back to library</a>
+<div class="detail-heading">
+  <div><h1>{{ row.code }}</h1><p class="filename">{{ row.path }}</p></div>
+  <a class="button secondary" href="{{ url_for('media', video_id=row.id, download=1) }}">Download original</a>
 </div>
-<script>
-const player = document.getElementById("player");
-function seek() {
-  const match = /^#t=(\d+(?:\.\d+)?)$/.exec(location.hash);
-  if (match && player.readyState > 0) player.currentTime = Number(match[1]);
-}
-player.addEventListener("loadedmetadata", seek);
-player.addEventListener("error", () => document.getElementById("playback-error").hidden = false);
-if (player.error) document.getElementById("playback-error").hidden = false;
-addEventListener("hashchange", seek);
-seek();
-</script>
+<div class="detail">
+  <section aria-label="Playback and transcript">
+    <video id="player" controls playsinline preload="metadata" src="{{ url_for('media', video_id=row.id) }}"></video>
+    <p class="playback-error" id="playback-error" hidden role="status">This video couldn’t play in your browser. Download the original to open it in a video player.</p>
+    <section class="panel transcript-panel" aria-labelledby="transcript-title">
+      <div class="transcript-head">
+        <h2 id="transcript-title">Transcript</h2>
+        {% if segments %}<button id="follow" class="secondary" type="button" aria-pressed="false" hidden>Follow playback</button>{% endif %}
+      </div>
+      {% if segments %}
+      <div id="transcript-tools" hidden>
+        <label class="sr-only" for="transcript-query">Find in transcript</label>
+        <input type="search" id="transcript-query" placeholder="Find in this transcript">
+        <p id="transcript-count" class="metadata" aria-live="polite"></p>
+      </div>
+      <ol class="transcript" id="transcript-lines">
+        {% for segment in segments %}
+        <li data-start="{{ segment.start }}"><a href="#t={{ segment.start }}" aria-label="Jump to {{ segment.start|timestamp }}">{{ segment.start|timestamp }}</a><span>{{ segment.words }}</span></li>
+        {% endfor %}
+      </ol>
+      {% elif row.status == 'Failed' %}<p>Indexing failed. Run the scan again to retry.</p><details><summary>Show error details</summary><p class="filename">{{ row.error }}</p></details>
+      {% elif row.status == 'Pending' %}<p>Transcription is pending. Run a full scan on the host to process the audio.</p>
+      {% elif row.status == 'No audio' %}<p>This recording has no audio track.</p>
+      {% else %}<p>No speech segments were found.</p>
+      {% endif %}
+    </section>
+  </section>
+  <aside class="panel details-panel">
+    <h2>Recording details</h2>
+    <dl>
+      <dt>Embedded creation date</dt><dd>{{ row.created if row.created else 'Unknown' }}</dd>
+      {% if row.date_source %}<dt>Date source</dt><dd>{{ row.date_source }}</dd>{% endif %}
+      {% if row.duration is not none %}<dt>Duration</dt><dd>{{ row.duration|timestamp }}</dd>{% endif %}
+      {% if row.description %}<dt>Description</dt><dd class="description">{{ row.description }}</dd>{% endif %}
+    </dl>
+    {% if saved %}<p class="saved" role="status">Details saved.</p>{% endif %}
+    <details class="edit-details">
+      <summary>Edit details</summary>
+      <form method="post" class="editor">
+        <label>Code name<input name="code" value="{{ row.code }}" maxlength="250" required></label>
+        <label>Description<textarea name="description" maxlength="4000" rows="5">{{ row.description }}</textarea></label>
+        <button type="submit" class="primary">Save details</button>
+      </form>
+    </details>
+  </aside>
+</div>
 {% endblock %}

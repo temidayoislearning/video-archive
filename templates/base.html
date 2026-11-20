@@ -4,10 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Video Archive{% endblock %}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='archive.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='archive.css', v=2) }}">
+<script src="{{ url_for('static', filename='archive.js', v=2) }}" defer></script>
 </head>
 <body>
-<header><div class="shell"><a class="brand" href="{{ url_for('index') }}"><span class="logo" aria-hidden="true">▶</span> Video Archive</a></div></header>
-<main class="shell">{% block content %}{% endblock %}</main>
+<a class="skip" href="#main-content">Skip to content</a>
+<header class="topbar">
+  <div class="shell topbar-inner">
+    <a class="brand" href="{{ url_for('index') }}"><span class="brand-icon" aria-hidden="true">▶</span>Video Archive</a>
+    <a class="nav-link" href="{{ url_for('index') }}">Library</a>
+  </div>
+</header>
+<main class="shell" id="main-content">{% block content %}{% endblock %}</main>
 </body>
 </html>
