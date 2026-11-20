@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ row.code }} · Video Archive{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('index') }}">← All recordings</a>
+<h1>{{ row.code }}</h1>
+<p class="filename">{{ row.path }}</p>
+<div class="detail">
+<section aria-label="Playback and transcript">
+<video id="player" controls preload="metadata" src="{{ url_for('media', video_id=row.id) }}"></video>
+<p><a href="{{ url_for('media', video_id=row.id, download=1) }}">Download original</a><span id="playback-error" hidden> · Browser playback unavailable</span></p>
+<h2>Transcript</h2>
+{% if row.status == 'Failed' %}<p>Indexing failed. Run the scan again to retry.</p><p class="filename">{{ row.error }}</p>
+{% elif row.status == 'Pending' %}<p>Transcription is pending. Run a full scan to process the audio.</p>
+{% elif row.status == 'No audio' %}<p>This recording has no audio track.</p>
+{% elif not segments %}<p>No speech segments were found.</p>
+{% endif %}
+<ol class="transcript">
+{% for segment in segments %}
+<li><a href="#t={{ segment.start }}">{{ segment.start|timestamp }}</a><span>{{ segment.words }}</span></li>
+{% endfor %}
+</ol>
+</section>
+<aside>
+<h2>Recording details</h2>
+<dl>
+<dt>Embedded creation date</dt><dd>{{ row.created if row.created else 'Unknown' }}</dd>
+{% if row.date_source %}<dt>Date source</dt><dd>{{ row.date_source }}</dd>{% endif %}
+{% if row.duration is not none %}<dt>Duration</dt><dd>{{ row.duration|timestamp }}</dd>{% endif %}
+</dl>
+<form method="post" class="editor">
+<label>Code name<input name="code" value="{{ row.code }}" maxlength="250" required></label>
+<label>Description<textarea name="description" maxlength="4000" rows="5">{{ row.description }}</textarea></label>
+<button type="submit">Save details</button>
+{% if saved %}<p role="status">Details saved.</p>{% endif %}
+</form>
+</aside>
+</div>
+<script>
+const player = document.getElementById("player");
+function seek() {
+  const match = /^#t=(\d+(?:\.\d+)?)$/.exec(location.hash);
+  if (match && player.readyState > 0) player.currentTime = Number(match[1]);
+}
+player.addEventListener("loadedmetadata", seek);
+player.addEventListener("error", () => document.getElementById("playback-error").hidden = false);
+if (player.error) document.getElementById("playback-error").hidden = false;
+addEventListener("hashchange", seek);
+seek();
+</script>
+{% endblock %}

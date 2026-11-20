@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+<h1>Find a recording</h1>
+<form class="filters" method="get">
+<label class="search">Search <input type="search" name="q" value="{{ query }}" maxlength="250" placeholder="Code name, filename, description, or spoken phrase"></label>
+<label>From <input type="date" name="from" value="{{ start }}"></label>
+<label>Through <input type="date" name="to" value="{{ end }}"></label>
+<button type="submit">Search</button>
+</form>
+</section>
+<section aria-labelledby="results">
+<div class="results-header">
+<h2 id="results">{{ 'Search results' if query or start or end else 'Recordings' }}</h2>
+<p>{{ rows[0].total if rows else 0 }} matching recordings{% if counts.get('Pending') %} · {{ counts['Pending'] }} awaiting transcription{% endif %}{% if counts.get('Failed') %} · {{ counts['Failed'] }} indexing errors{% endif %}</p>
+</div>
+{% if not counts %}
+<div class="empty"><h3>Your archive is empty</h3><p>Import a video folder with the command in the setup guide. Indexed files will appear here.</p></div>
+{% elif not rows %}
+<div class="empty"><h3>No recordings found</h3><a href="{{ url_for('index') }}">Clear search and filters</a></div>
+{% endif %}
+<div class="recordings">
+{% for row in rows %}
+<article class="recording">
+<div class="card-top"><span class="file-icon" aria-hidden="true">▶</span><span class="status {{ row.status|lower|replace(' ', '-') }}">{{ row.status }}</span></div>
+<h3><a href="{{ url_for('detail', video_id=row.id) }}">{{ row.code }}</a></h3>
+<div class="filename">{{ row.path }}</div>
+{% if row.description %}<p class="description">{{ row.description }}</p>{% endif %}
+<p class="metadata">{{ row.created[:10] if row.created else 'Date unknown' }}{% if row.duration is not none %} · {{ row.duration|timestamp }}{% endif %}</p>
+{% if row.match_words %}<p class="excerpt"><a href="{{ url_for('detail', video_id=row.id) }}#t={{ row.match_start }}">{{ row.match_start|timestamp }}</a> {{ row.match_words }}</p>{% endif %}
+</article>
+{% endfor %}
+</div>
+{% if page > 1 or rows and rows[0].total > page * 24 %}
+<nav class="pagination" aria-label="Results pages">
+{% if page > 1 %}<a href="{{ url_for('index', q=query, page=page-1, **{'from': start, 'to': end}) }}">Previous page</a>{% endif %}
+{% if rows and rows[0].total > page * 24 %}<a href="{{ url_for('index', q=query, page=page+1, **{'from': start, 'to': end}) }}">Next page</a>{% endif %}
+</nav>
+{% endif %}
+</section>
+{% endblock %}
