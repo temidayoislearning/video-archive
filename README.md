@@ -105,3 +105,21 @@ Use a fresh folder or unique filenames when copying to a populated archive
 to avoid overwriting an original. If you already have an indexed archive on
 the host, keep using its existing server and data directory, or migrate both
 its videos and SQLite catalog together before switching to Docker.
+
+## Serve the archive at the existing workers.dev address
+
+The repository's Wrangler configuration runs a Worker that forwards requests
+to the Python server. It deploys no static assets, so Cloudflare cannot serve
+the Flask templates directly.
+
+1. Run the Python server using the instructions above, with `ARCHIVE_PASSWORD`
+   set. Set its `ARCHIVE_PUBLIC_ORIGIN` to your public Worker URL, without a
+   trailing slash, so editing recording details works through the Worker.
+2. Give the Python server an HTTPS address reachable by Cloudflare, for example
+   using a named Cloudflare Tunnel on a separate hostname. With this proxy
+   configuration the origin must accept the app's HTTP Basic login directly.
+3. In the existing Worker settings, add `ARCHIVE_BACKEND` as a variable with
+   the Python server's HTTPS origin (no path). Use `npx wrangler deploy`
+   from the repository root, or set that as the deploy command in Workers
+   Builds. Remove any previous static-assets deploy flags. The Worker shows a
+   server connection message until you configure its backend.
